@@ -3,7 +3,7 @@ import numpy as np
 from numpy import linalg as la
 
 T = 60                  # Simulation time, s
-dT = 1                  # Time interval, ms
+dT = 10                 # Time interval, ms
 dTs = dT / 1000         # Time interval, s
 A = 596                 # Canvas side, m
 a = 10                  # Text padding
@@ -26,12 +26,17 @@ def main():
     class Body(object):
         def __init__(self, m, x, y, vx, vy):
             self.m = m
+            # With respect to canvas
             self.position = np.array([canvas.winfo_width() / 2 + x, canvas.winfo_height() / 2 - y])
-            self.position0 = np.array([x, y])
             self.velocity = np.array([vx, -vy])
-            self.velocity0 = np.array([vx, vy])
             self.d_position = np.array([0, 0])
             self.d_velocity = np.array([0, 0])
+
+            # With respect to grid
+            self.velocity0 = np.array([vx, vy])
+            self.position0 = np.array([x, y])
+            self.d_position0 = np.array([0, 0])
+            self.d_velocity0 = np.array([0, 0])
 
     def gravity_motion(body1, body2, body3):
         global n
@@ -39,14 +44,17 @@ def main():
         body1.d_position = body1.velocity * dTs
         body2.d_position = body2.velocity * dTs
         body3.d_position = body3.velocity * dTs
+        body1.d_position0 = [body1.d_position[0], -body1.d_position[1]]
+        body2.d_position0 = [body2.d_position[0], -body2.d_position[1]]
+        body3.d_position0 = [body3.d_position[0], -body3.d_position[1]]
 
         # Current position
         body1.position += body1.d_position
         body2.position += body2.d_position
         body3.position += body3.d_position
-        body1.position0 += [body1.d_position[0], -body1.d_position[1]]
-        body2.position0 += [body2.d_position[0], -body2.d_position[1]]
-        body3.position0 += [body3.d_position[0], -body3.d_position[1]]
+        body1.position0 += body1.d_position0
+        body2.position0 += body2.d_position0
+        body3.position0 += body3.d_position0
 
         # Collision detection
         if la.norm(body1.position - body2.position) < limit:
@@ -69,13 +77,17 @@ def main():
         body3.d_velocity = G * dTs * (body1.m * (body1.position - body3.position) / (
                     (la.norm((body1.position - body3.position))) ** 3) + body2.m * (body2.position - body3.position) / (
                                                      (la.norm((body2.position - body3.position))) ** 3))
+        body1.d_velocity0 = [body1.d_velocity[0], -body1.d_velocity[1]]
+        body2.d_velocity0 = [body2.d_velocity[0], -body2.d_velocity[1]]
+        body3.d_velocity0 = [body3.d_velocity[0], -body3.d_velocity[1]]
+
         # Current velocity
         body1.velocity += body1.d_velocity
         body2.velocity += body2.d_velocity
         body3.velocity += body3.d_velocity
-        body1.velocity0 += [body1.d_velocity[0], -body1.d_velocity[1]]
-        body2.velocity0 += [body2.d_velocity[0], -body2.d_velocity[1]]
-        body3.velocity0 += [body3.d_velocity[0], -body3.d_velocity[1]]
+        body1.velocity0 += body1.d_velocity0
+        body2.velocity0 += body2.d_velocity0
+        body3.velocity0 += body3.d_velocity0
 
     def start_simulation():
         # Get initial condition
@@ -108,16 +120,20 @@ def main():
             canvas.itemconfig(stat, text=status.format(T=T, k=k, n=int(n), N=int(N)))
 
             canvas.move(object1, b1.d_position[0], b1.d_position[1])
-            canvas.itemconfig(text1, text=location.format(x=b1.position0[0], y=b1.position0[1], vx=b1.velocity0[0], vy=b1.velocity0[1]))
-            canvas.move(text1, b1.d_position[0], b1.d_position[1])
-
             canvas.move(object2, b2.d_position[0], b2.d_position[1])
-            canvas.itemconfig(text2, text=location.format(x=b2.position0[0], y=b2.position0[1], vx=b2.velocity0[0], vy=b2.velocity0[1]))
-            canvas.move(text2, b2.d_position[0], b2.d_position[1])
-
             canvas.move(object3, b3.d_position[0], b3.d_position[1])
-            canvas.itemconfig(text3, text=location.format(x=b3.position0[0], y=b3.position0[1], vx=b3.velocity0[0], vy=b3.velocity0[1]))
+
+            canvas.move(text1, b1.d_position[0], b1.d_position[1])
+            canvas.move(text2, b2.d_position[0], b2.d_position[1])
             canvas.move(text3, b3.d_position[0], b3.d_position[1])
+
+            canvas.itemconfig(text1, text=location.format(x=b1.position0[0], y=b1.position0[1], vx=b1.velocity0[0], vy=b1.velocity0[1]))
+            canvas.itemconfig(text2, text=location.format(x=b2.position0[0], y=b2.position0[1], vx=b2.velocity0[0], vy=b2.velocity0[1]))
+            canvas.itemconfig(text3, text=location.format(x=b3.position0[0], y=b3.position0[1], vx=b3.velocity0[0], vy=b3.velocity0[1]))
+
+            canvas.create_line(b1.position[0], b1.position[1], b1.position[0] + b1.d_position[0], b1.position[1] + b1.d_position[1], fill='red')
+            canvas.create_line(b2.position[0], b2.position[1], b2.position[0] + b2.d_position[0], b2.position[1] + b2.d_position[1], fill='green')
+            canvas.create_line(b3.position[0], b3.position[1], b3.position[0] + b3.d_position[0], b3.position[1] + b3.d_position[1], fill='blue')
 
             if n < N:
                 root.after(dT, motion)
